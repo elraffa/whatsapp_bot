@@ -1,22 +1,21 @@
-// WhatsApp Chatbot using Twilio + OpenAI (GPT-4)
-// Dependencies: express, body-parser, twilio, openai, dotenv
+// WhatsApp Bot using Meta WhatsApp Cloud API + OpenAI (GPT)
+// Dependencies: express, body-parser, openai, axios, dotenv
 
 require('dotenv').config();
 const express = require('express');
 const bodyParser = require('body-parser');
-const { MessagingResponse } = require('twilio').twiml;
 const { OpenAI } = require('openai');
+const axios = require('axios');
 
 const app = express();
 const port = process.env.PORT || 3000;
 
-app.use(bodyParser.urlencoded({ extended: false }));
+app.use(bodyParser.json());
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-// Session store (in-memory for demo)
+// In-memory session store (demo only)
 const sessions = {};
-
 function getSession(user) {
   if (!sessions[user]) {
     sessions[user] = [
@@ -29,47 +28,73 @@ function getSession(user) {
   return sessions[user];
 }
 
-app.get('/', (req, res) => {
-  res.send('WhatsApp bot is running.');
+// Webhook verification (Meta requirement)
+app.get('/webhook', (req, res) => {
+  const VERIFY_TOKEN = process.env.WHATSAPP_VERIFY_TOKEN;
+  const mode = req.query['hub.mode'];
+  const token = req.query['hub.verify_token'];
+  const challenge = req.query['hub.challenge'];
+
+  if (mode && token && mode === 'subscribe' && token === VERIFY_TOKEN) {
+    console.log('Webhook verified');
+    res.status(200).send(challenge);
+  } else {
+    res.sendStatus(403);
+  }
 });
 
+// Webhook handler (Meta Cloud API)
 app.post('/webhook', async (req, res) => {
-  const incomingMsg = req.body.Body;
-  const userNumber = req.body.From;
+  const body = req.body;
 
-  const session = getSession(userNumber);
-  session.push({ role: 'user', content: incomingMsg });
+  if (body.object === 'whatsapp_business_account') {
+    const changes = body.entry?.[0]?.changes?.[0]?.value;
+    const message = changes?.messages?.[0];
+    const phoneNumberId = changes?.metadata?.phone_number_id;
+    const from = message?.from;
+    const msgText = message?.text?.body;
 
-  try {
-    const gptReply = await openai.chat.completions.create({
-      model: 'gpt-4',
-      messages: session,
-    });
+    if (!from || !msgText) return res.sendStatus(200);
 
-    const replyText = gptReply.choices[0].message.content;
-    session.push({ role: 'assistant', content: replyText });
+    console.log(`Incoming message from ${from}: ${msgText}`);
 
-    const twiml = new MessagingResponse();
-    twiml.message(replyText);
+    const session = getSession(from);
+    session.push({ role: 'user', content: msgText });
 
-    // You could trigger a handoff alert here:
-    if (replyText.includes('[human]')) {
-      console.log(`Handoff needed for ${userNumber}`);
-      // Send an email, alert, or WhatsApp message to human
+    try {
+      const gptReply = await openai.chat.completions.create({
+        model: 'gpt-4',
+        messages: session,
+      });
+
+      const replyText = gptReply.choices[0].message.content;
+      session.push({ role: 'assistant', content: replyText });
+
+      await axios.post(`https://graph.facebook.com/v22.0/${phoneNumberId}/messages`, {
+        messaging_product: "whatsapp",
+        to: from,
+        text: { body: replyText }
+      }, {
+        headers: {
+          Authorization: `Bearer ${process.env.META_ACCESS_TOKEN}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (replyText.includes('[human]')) {
+        console.log(`Human handoff triggered for ${from}`);
+      }
+
+      res.sendStatus(200);
+    } catch (err) {
+      console.error('Error sending reply:', err);
+      res.sendStatus(500);
     }
-
-    res.writeHead(200, { 'Content-Type': 'text/xml' });
-    res.end(twiml.toString());
-
-  } catch (err) {
-    console.error('GPT Error:', err);
-    const twiml = new MessagingResponse();
-    twiml.message("Sorry, there was an error. We'll get back to you soon.");
-    res.writeHead(200, { 'Content-Type': 'text/xml' });
-    res.end(twiml.toString());
+  } else {
+    res.sendStatus(404);
   }
 });
 
 app.listen(port, () => {
-  console.log(`🚀 WhatsApp bot running at http://localhost:${port}`);
+  console.log(`🚀 WhatsApp bot server running on port ${port}`);
 });
