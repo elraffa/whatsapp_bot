@@ -66,6 +66,7 @@ app.post('/webhook', async (req, res) => {
         model: 'gpt-4',
         messages: session,
       });
+      console.log('🤖 GPT says:', gptReply.choices[0].message.content);
 
       const replyText = gptReply.choices[0].message.content;
       session.push({ role: 'assistant', content: replyText });
@@ -79,6 +80,10 @@ app.post('/webhook', async (req, res) => {
           Authorization: `Bearer ${process.env.META_ACCESS_TOKEN}`,
           'Content-Type': 'application/json'
         }
+      }).then(response => {
+        console.log('Message sent successfully:', response.data);
+      }).catch(error => {
+          console.error('❌ Meta send error:', error.response?.data || error.message);
       });
 
       if (replyText.includes('[human]')) {
