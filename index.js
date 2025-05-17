@@ -137,7 +137,7 @@ app.post("/webhook", async (req, res) => {
           {
             messaging_product: "whatsapp",
             to: from,
-            text: { body: "¡Gracias por tu interés! Para más ayuda, un agente humano se pondrá en contacto contigo pronto. 😊" },
+            text: { body: "¡Gracias por tu interés! Para más ayuda, un especialista se pondrá en contacto contigo pronto. 😊" },
           },
           {
             headers: {
