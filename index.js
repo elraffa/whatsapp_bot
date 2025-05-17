@@ -64,6 +64,7 @@ async function logToSheet({ phone, userMessage, gptReply }) {
 
     const doc = new GoogleSpreadsheet(process.env.GOOGLE_SHEET_ID, serviceAccountAuth);
     await doc.loadInfo();
+    console.log('Available sheets:', Object.keys(doc.sheetsByTitle));
 
     const sheet = doc.sheetsByTitle['WhatsApp Leads'];
     await sheet.addRow({
