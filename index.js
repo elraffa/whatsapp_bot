@@ -54,19 +54,28 @@ function sanitizeText(text) {
 
 // Log to Google Sheets
 async function logToSheet({ phone, userMessage, gptReply }) {
-  const doc = new GoogleSpreadsheet('1nxUr-TpJRnZFDiYqfNFlRE0KPkFbvKhfPzCCWi_GmGc');
- await doc.useServiceAccountAuth({
-    client_email: creds.client_email,
-    private_key: creds.private_key,
-  });
-  await doc.loadInfo();
-  const sheet = doc.sheetsByTitle['Leads'];
-  await sheet.addRow({
-    Timestamp: new Date().toISOString(),
-    Phone: phone,
-    'User Message': userMessage,
-    'GPT Reply': gptReply
-  });
+  try {
+    const serviceAccountAuth = new JWT({
+      email: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
+      key: process.env.GOOGLE_PRIVATE_KEY.replace(/\\n/g, '\n'),
+      scopes: ['https://www.googleapis.com/auth/spreadsheets'],
+    });
+
+    const doc = new GoogleSpreadsheet(process.env.GOOGLE_SHEET_ID, serviceAccountAuth);
+    await doc.loadInfo();
+
+    const sheet = doc.sheetsByTitle['WhatsApp Leads'];
+    await sheet.addRow({
+      Timestamp: new Date().toISOString(),
+      Phone: phone,
+      'User Message': userMessage,
+      'GPT Reply': gptReply,
+    });
+
+    console.log('✅ Logged to Google Sheets');
+  } catch (err) {
+    console.error('❌ Failed to log to Google Sheets:', err.message || err);
+  }
 }
 
 // Webhook handler (Meta Cloud API)
