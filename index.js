@@ -130,7 +130,27 @@ app.post("/webhook", async (req, res) => {
     const assistantReplies = session.filter(m => m.role === 'assistant').length;
     if (assistantReplies >= 6) {
       console.log(`🛑 Assistant reply limit reached for ${from}. No further replies.`);
-      return res.sendStatus(200); // or optionally trigger a final message here
+      // Trigger a final message to the user
+      try {
+        await axios.post(
+          `https://graph.facebook.com/v19.0/${phoneNumberId}/messages`,
+          {
+            messaging_product: "whatsapp",
+            to: from,
+            text: { body: "¡Gracias por tu interés! Para más ayuda, un agente humano se pondrá en contacto contigo pronto. 😊" },
+          },
+          {
+            headers: {
+              Authorization: `Bearer ${process.env.META_ACCESS_TOKEN}`,
+              "Content-Type": "application/json",
+            },
+          }
+        );
+        console.log("✅ Final message sent to user.");
+      } catch (finalMsgErr) {
+        console.error("❌ Failed to send final message:", finalMsgErr.message);
+      }
+      return res.sendStatus(200);
     }
 
     try {
