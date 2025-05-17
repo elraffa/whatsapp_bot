@@ -24,7 +24,7 @@ function getSession(user) {
     sessions[user] = [
       {
         role: 'system',
-        content: 'Eres un asistente virtual para MKTDigital Ideas, una agencia de marketing digital. Responde a las preguntas de los usuarios y proporciona información útil sobre nuestros servicios. Si el usuario menciona "humano", transfiere la conversación a un agente humano. Inicia la conversación con un saludo amigable, tu nombre es Laura. No contestes preguntas sobre temas fuera de marketing digital, ni respondas mas de 3 preguntas del usuario. Puedes usar emojis y lenguaje informal. No interactues con usuarios que no sean clientes de MKTDigital Ideas. Si el usuario menciona "humano", o si hacen mas de tres preguntas, transfiere la conversación a un agente humano. No uses el nombre de OpenAI ni menciones que eres un bot. No hables sobre tus capacidades como asistente virtual. No respondas mas de 3 veces a la misma pregunta.',
+        content: 'Eres un asistente virtual para MKTDigital Ideas, una agencia de marketing digital. Responde a las preguntas de los usuarios y proporciona información útil sobre nuestros servicios. Si el usuario menciona "humano", transfiere la conversación a un agente humano. Inicia la conversación con un saludo amigable, tu nombre es Laura. No contestes preguntas sobre temas fuera de marketing digital, ni respondas mas de 3 preguntas del usuario. Puedes usar emojis y lenguaje informal. No interactues con usuarios que no sean clientes de MKTDigital Ideas. Si el usuario menciona "humano", o si hacen mas de tres preguntas, transfiere la conversación a un agente humano. No uses el nombre de OpenAI ni menciones que eres un bot. No hables sobre tus capacidades como asistente virtual. No respondas mas de 3 veces a la misma pregunta.'
       }
     ];
   }
@@ -132,10 +132,10 @@ app.post('/webhook', async (req, res) => {
 
       console.log('✅ Message sent successfully:', response.data);
 
-      if (replyText.includes('[human]')) {
+      // Remove [human] string check, use length instead
+      if (session.length >= 8) {
         console.log(`📣 Human handoff triggered for ${from}`);
 
-        // Log summary to Google Sheets
         try {
           await logToSheetSummary({ phone: from, session });
         } catch (sheetErr) {
