@@ -55,7 +55,10 @@ function sanitizeText(text) {
 // Log to Google Sheets
 async function logToSheet({ phone, userMessage, gptReply }) {
   const doc = new GoogleSpreadsheet('1nxUr-TpJRnZFDiYqfNFlRE0KPkFbvKhfPzCCWi_GmGc');
-  await doc.useServiceAccountAuth(creds);
+ await doc.useServiceAccountAuth({
+    client_email: creds.client_email,
+    private_key: creds.private_key,
+  });
   await doc.loadInfo();
   const sheet = doc.sheetsByTitle['Leads'];
   await sheet.addRow({
