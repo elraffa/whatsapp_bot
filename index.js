@@ -53,8 +53,8 @@ function sanitizeText(text) {
   return text.replace(/[<>]/g, '').trim().substring(0, 1000); // max 1000 chars
 }
 
-// Log to Google Sheets
-async function logToSheet({ phone, userMessage, gptReply }) {
+// Log summary to Google Sheets using GPT
+async function logToSheetSummary({ phone, session }) {
   try {
     const serviceAccountAuth = new JWT({
       email: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
@@ -67,16 +67,27 @@ async function logToSheet({ phone, userMessage, gptReply }) {
     console.log('Available sheets:', Object.keys(doc.sheetsByTitle));
 
     const sheet = doc.sheetsByTitle['Leads'];
+    if (!sheet) throw new Error('Sheet "Leads" not found');
+
+    const summaryResponse = await openai.chat.completions.create({
+      model: 'gpt-3.5-turbo',
+      messages: [
+        { role: 'system', content: 'Resumí esta conversación en una oración incluyendo nombre del cliente si se menciona, lo que necesita y la urgencia. Sé claro y directo.' },
+        ...session
+      ],
+    });
+
+    const summary = summaryResponse.choices[0].message.content;
+
     await sheet.addRow({
       Timestamp: new Date().toISOString(),
       Phone: phone,
-      'User Message': userMessage,
-      'GPT Reply': gptReply,
+      Summary: summary
     });
 
-    console.log('✅ Logged to Google Sheets');
+    console.log('✅ Summary logged to Google Sheets');
   } catch (err) {
-    console.error('❌ Failed to log to Google Sheets:', err.message || err);
+    console.error('❌ Failed to log summary to Google Sheets:', err.message || err);
   }
 }
 
@@ -123,18 +134,13 @@ app.post('/webhook', async (req, res) => {
 
       if (replyText.includes('[human]')) {
         console.log(`📣 Human handoff triggered for ${from}`);
-      }
 
-      // Log to Google Sheets
-      try {
-        await logToSheet({
-          phone: from,
-          userMessage: msgText,
-          gptReply: replyText
-        });
-        console.log('✅ Lead logged to Google Sheets');
-      } catch (sheetErr) {
-        console.error('❌ Failed to log to Google Sheets:', sheetErr.message);
+        // Log summary to Google Sheets
+        try {
+          await logToSheetSummary({ phone: from, session });
+        } catch (sheetErr) {
+          console.error('❌ Failed to log summary to Google Sheets:', sheetErr.message);
+        }
       }
 
       res.sendStatus(200);
