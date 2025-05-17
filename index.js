@@ -6,6 +6,8 @@ const express = require('express');
 const bodyParser = require('body-parser');
 const { OpenAI } = require('openai');
 const axios = require('axios');
+const { GoogleSpreadsheet } = require('google-spreadsheet');
+const creds = require('./google-credentials.json'); // name it accordingly
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -48,6 +50,20 @@ app.get('/webhook', (req, res) => {
 function sanitizeText(text) {
   if (typeof text !== 'string') return '';
   return text.replace(/[<>]/g, '').trim().substring(0, 1000); // max 1000 chars
+}
+
+// Log to Google Sheets
+async function logToSheet({ phone, userMessage, gptReply }) {
+  const doc = new GoogleSpreadsheet('1nxUr-TpJRnZFDiYqfNFlRE0KPkFbvKhfPzCCWi_GmGc');
+  await doc.useServiceAccountAuth(creds);
+  await doc.loadInfo();
+  const sheet = doc.sheetsByTitle['Leads'];
+  await sheet.addRow({
+    Timestamp: new Date().toISOString(),
+    Phone: phone,
+    'User Message': userMessage,
+    'GPT Reply': gptReply
+  });
 }
 
 // Webhook handler (Meta Cloud API)
@@ -95,6 +111,18 @@ app.post('/webhook', async (req, res) => {
         console.log(`📣 Human handoff triggered for ${from}`);
       }
 
+      // Log to Google Sheets
+      try {
+        await logToSheet({
+          phone: from,
+          userMessage: msgText,
+          gptReply: replyText
+        });
+        console.log('✅ Lead logged to Google Sheets');
+      } catch (sheetErr) {
+        console.error('❌ Failed to log to Google Sheets:', sheetErr.message);
+      }
+
       res.sendStatus(200);
     } catch (err) {
       console.error('❌ GPT or Meta send error:', err.response?.data || err.message);
@@ -104,6 +132,8 @@ app.post('/webhook', async (req, res) => {
     res.sendStatus(404);
   }
 });
+
+
 
 app.listen(port, () => {
   console.log(`🚀 WhatsApp bot server running on port ${port}`);
