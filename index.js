@@ -126,6 +126,13 @@ app.post("/webhook", async (req, res) => {
     const session = getSession(from);
     session.push({ role: "user", content: msgText });
 
+    // Limit GPT to 3 assistant replies per session
+    const assistantReplies = session.filter(m => m.role === 'assistant').length;
+    if (assistantReplies >= 3) {
+      console.log(`🛑 Assistant reply limit reached for ${from}. No further replies.`);
+      return res.sendStatus(200); // or optionally trigger a final message here
+    }
+
     try {
       const gptReply = await openai.chat.completions.create({
         model: "gpt-3.5-turbo",
