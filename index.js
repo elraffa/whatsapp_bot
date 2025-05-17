@@ -128,7 +128,7 @@ app.post("/webhook", async (req, res) => {
 
     // Limit GPT to 3 assistant replies per session
     const assistantReplies = session.filter(m => m.role === 'assistant').length;
-    if (assistantReplies >= 3) {
+    if (assistantReplies >= 6) {
       console.log(`🛑 Assistant reply limit reached for ${from}. No further replies.`);
       return res.sendStatus(200); // or optionally trigger a final message here
     }
