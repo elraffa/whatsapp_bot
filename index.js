@@ -66,7 +66,7 @@ async function logToSheet({ phone, userMessage, gptReply }) {
     await doc.loadInfo();
     console.log('Available sheets:', Object.keys(doc.sheetsByTitle));
 
-    const sheet = doc.sheetsByTitle['WhatsApp Leads'];
+    const sheet = doc.sheetsByTitle['Leads'];
     await sheet.addRow({
       Timestamp: new Date().toISOString(),
       Phone: phone,
